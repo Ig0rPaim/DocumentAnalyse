@@ -1,4 +1,4 @@
-namespace Producer.Factories.Interfaces;
+namespace Commons.Services.Interfaces;
 
 public interface IFileService
 {

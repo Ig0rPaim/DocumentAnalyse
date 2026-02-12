@@ -1,16 +1,31 @@
+using Commons.Configuration;
+using Commons.Services.Interfaces;
+using Confluent.Kafka;
+
 namespace Consumer;
 
 public class Worker(ILogger<Worker> logger) : BackgroundService
 {
+    readonly IConsumer<string, string> _consumer;
+    readonly KafkaSettings _kafkaSettings;
+    readonly ILogger<Worker> _logger;
+    readonly IKafkaConsumerService _kafkaConsumerService;
+    
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
+        _consumer.Subscribe(_kafkaSettings.TopicName)
+            ;
         while (!stoppingToken.IsCancellationRequested)
         {
-            if (logger.IsEnabled(LogLevel.Information))
+            try
             {
-                logger.LogInformation("Worker running at: {time}", DateTimeOffset.Now);
+                await _kafkaConsumerService.ConsumeEvent(_consumer, stoppingToken);
             }
-            await Task.Delay(1000, stoppingToken);
+            catch (OperationCanceledException) { break; }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, ex.Message);
+            }
         }
     }
 }

@@ -1,6 +1,7 @@
-using Producer.Factories.Interfaces;
+using Commons.Services.Interfaces;
+using Microsoft.AspNetCore.Http;
 
-namespace Producer.Services.Implementations;
+namespace Commons.Services.Implementations;
 
 public class FormFileService : IFileService
 {
@@ -47,7 +48,7 @@ public class FormFileService : IFileService
             errors[1] = "Type no support"; 
         }
 
-        if (Path.GetExtension(_file.FileName) != "pdf")
+        if (Path.GetExtension(_file.FileName) != ".pdf")
         {
             valid = false;
             errors[2] = "Extension no support";

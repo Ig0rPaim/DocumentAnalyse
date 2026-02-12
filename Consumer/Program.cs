@@ -1,4 +1,5 @@
 using Commons;
+using Commons.Configuration;
 using Consumer;
 
 var builder = Host.CreateApplicationBuilder(args);
