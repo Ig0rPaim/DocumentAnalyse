@@ -1,6 +1,8 @@
+using Commons.Models;
+
 namespace Commons.Services.Interfaces;
 
 public interface IDocumentProcessor
 {
-    public Task<string> Process(Stream file);
+    public Task<AIResponse> Process(Stream file, string fileName);
 }

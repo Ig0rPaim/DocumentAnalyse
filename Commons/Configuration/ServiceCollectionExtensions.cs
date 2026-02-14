@@ -4,6 +4,7 @@ using Confluent.Kafka;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
+using Google.GenAI;
 using Minio;
 
 namespace Commons.Configuration;
@@ -21,12 +22,20 @@ public static class ServiceCollectionExtensions
         services.Configure<MinioSettings>(
             configuration.GetSection("MinioSettings"));
         
+        // Configuração do AiSettings com suporte a recarregamento (IOptionsMonitor)
+        services.Configure<AiSettings>(
+            configuration.GetSection("AiSettings"));
+        
         // Registro dos Singletons usando IOptionsMonitor para obter sempre o valor atualizado
         services.AddSingleton(sp => 
             sp.GetRequiredService<IOptionsMonitor<KafkaSettings>>().CurrentValue);
         
         services.AddSingleton(sp => 
             sp.GetRequiredService<IOptionsMonitor<MinioSettings>>().CurrentValue);
+        
+        services.AddSingleton(sp => 
+            sp.GetRequiredService<IOptionsMonitor<AiSettings>>().CurrentValue);
+
 
         services.AddSingleton<IProducer<string, string>>(sp =>
         {
@@ -62,13 +71,12 @@ public static class ServiceCollectionExtensions
                 .Build();
         });
 
-        
+        services.AddSingleton<Client>(sp =>
+        {
+            var settings = sp.GetRequiredService<AiSettings>();
+            return new Client(apiKey: settings.ApiKey);
+        });
 
-        services.AddScoped<IKafkaConsumerService, KafkaConsumerService>();
-        services.AddScoped<IKafkaProducerService, KafkaProducerService>();
-        services.AddScoped<IMinIoService, MinIoService>();
-        services.AddScoped<IDocumentProcessor, GeminiDocumentProcessor>();
-        
         return services;
     }
 }

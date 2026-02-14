@@ -31,8 +31,12 @@ public class KafkaConsumerService : IKafkaConsumerService
                 var documentEvent = JsonSerializer.Deserialize<DocumentEvent>(result.Message.Value);
                 _logger.LogInformation($"Processando arquivo: {documentEvent.ObjectName}");
 
-                await _documentProcessor.Process(await _minIoService.Get(documentEvent.ObjectName));
+                var (fileStream, fileName) = await _minIoService.Get(documentEvent.ObjectName);
+                
+                AIResponse aiResponse = await _documentProcessor.Process(fileStream, fileName);
 
+                if (!aiResponse.Success)
+                    throw new Exception(aiResponse.RawResponse);
                 consumer.Commit(result);
             }
         }

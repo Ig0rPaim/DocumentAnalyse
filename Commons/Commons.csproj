@@ -23,6 +23,7 @@
 
   <ItemGroup>
     <PackageReference Include="Confluent.Kafka" Version="2.13.0" />
+    <PackageReference Include="Google.GenAI" Version="1.0.0" />
     <PackageReference Include="Microsoft.Extensions.Options.ConfigurationExtensions" Version="10.0.3" />
     <PackageReference Include="Minio" Version="7.0.0" />
   </ItemGroup>

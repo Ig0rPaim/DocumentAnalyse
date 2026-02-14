@@ -1,5 +1,6 @@
 using Commons.Configuration;
 using Commons.Services.Interfaces;
+using Microsoft.Extensions.Logging;
 using Minio;
 using Minio.DataModel.Args;
 
@@ -9,6 +10,8 @@ public class MinIoService : IMinIoService
 {
     readonly MinioSettings _minioSettings;
     readonly IMinioClient _minioClient;
+    readonly ILogger<MinIoService> _logger;
+
 
     public MinIoService(MinioSettings minioSettings, IMinioClient minioClient)
     {
@@ -33,8 +36,31 @@ public class MinIoService : IMinIoService
         return  objectName;
     }
 
-    public Task<Stream> Get(string objectName)
+    public async Task<(Stream file, string fileName)> Get(string objectName)
     {
-        throw new NotImplementedException();
+        try
+        {
+            var memoryStream = new MemoryStream();
+
+            var args = new GetObjectArgs()
+                .WithBucket(_minioSettings.BucketName)
+                .WithObject(objectName)
+                .WithCallbackStream(stream =>
+                {
+                    stream.CopyTo(memoryStream);
+                });
+
+            await _minioClient.GetObjectAsync(args);
+            
+            memoryStream.Position = 0;
+            
+            return  (memoryStream, objectName);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError($"Erro ao baixar arquivo {objectName}: {ex.Message}");
+            throw; 
+        }
+        
     }
 }
