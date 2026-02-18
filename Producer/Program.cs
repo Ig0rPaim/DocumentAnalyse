@@ -1,8 +1,10 @@
 using Commons;
 using Commons.Configuration;
+using Commons.Models;
 using Commons.Services.Implementations;
 using Commons.Services.Interfaces;
 using Google.GenAI;
+using Producer.Services.Implementations;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -12,12 +14,15 @@ builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
+builder.Services.AddSingleton<IMinIoService, MinIoService>();
+builder.Services.AddSingleton<IProcessor, GeminiProcessor>();
+
 builder.Services.AddCommonConfiguration(builder.Configuration);
 
-builder.Services.AddScoped<IKafkaConsumerService, KafkaConsumerService>();
-builder.Services.AddScoped<IKafkaProducerService, KafkaProducerService>();
-builder.Services.AddScoped<IMinIoService, MinIoService>();
-builder.Services.AddScoped<IDocumentProcessor, GeminiDocumentProcessor>();
+
+
+// builder.Services.AddScoped<IMinIoService, MinIoService>();
+// builder.Services.AddScoped<IDocumentProcessor, GeminiDocumentProcessor>();
 
 var app = builder.Build();
 

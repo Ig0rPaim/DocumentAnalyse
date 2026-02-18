@@ -2,7 +2,7 @@ using System.Text.Json;
 
 namespace Commons.Models;
 
-public class AIResponse
+public class AiResponse : Event
 {
     double _duration = 0;
     public JsonElement Fields { get; set; } = JsonDocument.Parse("{}").RootElement;

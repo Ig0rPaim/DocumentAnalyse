@@ -6,22 +6,17 @@ using Minio.DataModel.Args;
 
 namespace Commons.Services.Implementations;
 
-public class MinIoService : IMinIoService
+public class MinIoService(MinioSettings minioSettings, IMinioClient minioClient, ILogger<MinIoService> logger)
+    : IMinIoService
 {
-    readonly MinioSettings _minioSettings;
-    readonly IMinioClient _minioClient;
-    readonly ILogger<MinIoService> _logger;
+    private readonly MinioSettings _minioSettings = minioSettings ?? throw new ArgumentNullException(nameof(minioSettings));
+    private readonly IMinioClient _minioClient = minioClient ?? throw new ArgumentNullException(nameof(minioClient));
+    private readonly ILogger<MinIoService> _logger = logger ?? throw new ArgumentNullException(nameof(logger));
 
 
-    public MinIoService(MinioSettings minioSettings, IMinioClient minioClient)
+    public async Task<string> Save(IFileService fileService, string objectName = null)
     {
-        _minioSettings = minioSettings ?? throw new ArgumentNullException(nameof(minioSettings));
-        _minioClient = minioClient ?? throw new ArgumentNullException(nameof(minioClient));
-    }
-
-    public async Task<string> Save(IFileService fileService)
-    {
-        var objectName = $"{Guid.NewGuid()}-{fileService.Name()}";
+        objectName = string.IsNullOrEmpty(objectName) ? $"{Guid.NewGuid()}-{fileService.Name()}" : objectName;
         
         using Stream stream = fileService.Stream();
         var putObjectArgs = new PutObjectArgs()

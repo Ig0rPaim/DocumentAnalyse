@@ -1,28 +1,28 @@
 using System.Net;
 using Commons.Configuration;
+using Commons.Models;
 using Commons.Services.Implementations;
 using Commons.Services.Interfaces;
 using Microsoft.AspNetCore.Mvc;
+using Producer.Services.Implementations;
 
 namespace Producer.Controllers;
 
 [ApiController]
 [Route("[controller]")]
-public class DocumentController : ControllerBase
+public class DocumentController(
+    IMinIoService minioService,
+    IKafkaProducerService<string, string> kafkaProducerService,
+    ILogger<DocumentController> logger,
+    KafkaSettings kafkaSettings,
+    MinioSettings minioSettings)
+    : ControllerBase
 {
-    readonly IMinIoService _minioService;
-    readonly  IKafkaProducerService _kafkaProducerService;
-    readonly ILogger<DocumentController> _logger;
-    readonly KafkaSettings _kafkaSettings;
-
-    public DocumentController(IMinIoService minioService, IKafkaProducerService kafkaProducerService,
-        ILogger<DocumentController> logger, KafkaSettings kafkaSettings)
-    {
-        _minioService = minioService ?? throw new ArgumentNullException(nameof(minioService));
-        _kafkaProducerService = kafkaProducerService ?? throw new ArgumentNullException(nameof(kafkaProducerService));
-        _logger = logger ?? throw new ArgumentNullException(nameof(logger));
-        _kafkaSettings = kafkaSettings ?? throw new ArgumentNullException(nameof(kafkaSettings));
-    }
+    readonly IMinIoService _minioService = minioService ?? throw new ArgumentNullException(nameof(minioService));
+    readonly  IKafkaProducerService _kafkaProducerService = kafkaProducerService ?? throw new ArgumentNullException(nameof(kafkaProducerService));
+    readonly ILogger<DocumentController> _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+    readonly KafkaSettings _kafkaSettings = kafkaSettings ?? throw new ArgumentNullException(nameof(kafkaSettings));
+    readonly MinioSettings _minioSettings = minioSettings ?? throw new ArgumentNullException(nameof(minioSettings));
 
     [HttpPost(Name = "PostDocumentToAnalyse")]
     public async Task<IActionResult> Post(IFormFile file)
@@ -32,10 +32,10 @@ public class DocumentController : ControllerBase
         if(!fileService.IsValid(out string[] errors))
             return Problem(string.Join(" ----- ", errors), statusCode: (int)HttpStatusCode.BadRequest, title: "Invalid file");
 
-        string? objectName = null;
+        Event documentEvent = new DocumentEvent(fileService.Name(), _minioSettings.BucketName);
         try
         {
-            objectName = await _minioService.Save(fileService);
+            _=await _minioService.Save(fileService, documentEvent.FullName);
         }
         catch (Exception ex)
         {
@@ -44,8 +44,8 @@ public class DocumentController : ControllerBase
         }
 
         try
-        {
-            await _kafkaProducerService.ProduceEvent(_kafkaSettings.TopicName, objectName);
+        {   
+            await _kafkaProducerService.ProduceEvent(_kafkaSettings.PostFileTopicName, documentEvent);
         }
         catch (Exception ex)
         {

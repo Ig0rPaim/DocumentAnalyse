@@ -6,44 +6,50 @@ using Microsoft.Extensions.Logging;
 
 namespace Commons.Services.Implementations;
 
-public class KafkaConsumerService : IKafkaConsumerService
+public class KafkaConsumerService<TKey, TValue>(
+    ILogger<KafkaConsumerService<TKey, TValue>> logger,
+    IProcessor processor,
+    ISerializatorService<TKey, TValue> serializatorService)
+    : IKafkaConsumerService<TKey, TValue>
 {
-    readonly ILogger<KafkaConsumerService> _logger;
-    readonly IDocumentProcessor _documentProcessor;
-    readonly IMinIoService _minIoService;
+    private readonly ILogger<KafkaConsumerService<TKey, TValue>> _logger =
+        logger ?? throw new ArgumentNullException(nameof(logger));
 
-    public KafkaConsumerService(ILogger<KafkaConsumerService> logger, IDocumentProcessor documentProcessor,
-        IMinIoService minIoService)
+    private readonly IProcessor _processor = processor ?? throw new ArgumentNullException(nameof(processor));
+
+    private readonly ISerializatorService<TKey, TValue> _serializatorService =
+        serializatorService ?? throw new ArgumentNullException(nameof(serializatorService));
+
+    async Task<Event> IKafkaConsumerService.ConsumeEvent(object consumer, CancellationToken stoppingToken)
     {
-        _logger = logger ?? throw new ArgumentNullException(nameof(logger));
-        _documentProcessor = documentProcessor ?? throw new ArgumentNullException(nameof(documentProcessor));
-        _minIoService = minIoService ?? throw new ArgumentNullException(nameof(minIoService));
+        return await ConsumeEvent((IConsumer<TKey, TValue>)consumer, stoppingToken);
     }
 
-    public async Task ConsumeEvent(IConsumer<string, string> consumer, CancellationToken stoppingToken)
+    public async Task<Event> ConsumeEvent(IConsumer<TKey, TValue> consumer, CancellationToken stoppingToken)
     {
+        var (fileStream, fileName) = new ValueTuple<Stream, string>();
         try
         {
             var result = consumer.Consume(stoppingToken);
-                
+
             if (result != null)
             {
-                var documentEvent = JsonSerializer.Deserialize<DocumentEvent>(result.Message.Value);
-                _logger.LogInformation($"Processando arquivo: {documentEvent.ObjectName}");
+                var @event = _serializatorService.DeserializeValueType<Event>(result.Message.Value);
+                _logger.LogInformation($"Processing event: {@event?.FullName ?? "event name not found"}");
 
-                var (fileStream, fileName) = await _minIoService.Get(documentEvent.ObjectName);
-                
-                AIResponse aiResponse = await _documentProcessor.Process(fileStream, fileName);
-
-                if (!aiResponse.Success)
-                    throw new Exception(aiResponse.RawResponse);
-                consumer.Commit(result);
+                return await _processor.Process(@event);
             }
+
+            return null;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Erro ao processar documento.");
+            _logger.LogError(ex, "Error to process file.");
             throw;
+        }
+        finally
+        {
+            if (fileStream is not null) await fileStream.DisposeAsync();
         }
     }
 }

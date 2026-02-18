@@ -1,7 +1,6 @@
 using Commons.Services.Interfaces;
-using Microsoft.AspNetCore.Http;
 
-namespace Commons.Services.Implementations;
+namespace Producer.Services.Implementations;
 
 public class FormFileService : IFileService
 {
@@ -38,8 +37,8 @@ public class FormFileService : IFileService
         bool valid = true;
         if (_file.Length <= 0)
         {
-           valid = false;
-           errors[0] = "File is empty";
+            valid = false;
+            errors[0] = "File is empty";
         }
 
         if (_file.ContentType != "application/pdf")

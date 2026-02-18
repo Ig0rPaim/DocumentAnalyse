@@ -8,22 +8,36 @@ using Microsoft.Extensions.Logging;
 
 namespace Commons.Services.Implementations;
 
-public class GeminiDocumentProcessor : IDocumentProcessor
+public class GeminiProcessor(
+    ILogger<GeminiProcessor> logger,
+    Client googleClient,
+    AiSettings aiSettings,
+    IMinIoService minIoService)
+    : IProcessor
 {
-    private readonly ILogger<GeminiDocumentProcessor> _logger;
-    private readonly Client _googleClient;
-    private readonly AiSettings _aiSettings;
+    private readonly ILogger<GeminiProcessor> _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+    private readonly Client _googleClient = googleClient ?? throw new ArgumentNullException(nameof(googleClient));
+    private readonly AiSettings _aiSettings = aiSettings ?? throw new ArgumentNullException(nameof(aiSettings));
+    private readonly IMinIoService _minIoService = minIoService ?? throw new ArgumentNullException(nameof(minIoService));
 
-    public GeminiDocumentProcessor(ILogger<GeminiDocumentProcessor> logger, Client googleClient, AiSettings aiSettings)
+    public async Task<Event> Process(Event @event)
     {
-        _logger = logger ?? throw new ArgumentNullException(nameof(logger));
-        _googleClient = googleClient ?? throw new ArgumentNullException(nameof(googleClient));
-        _aiSettings = aiSettings ?? throw new ArgumentNullException(nameof(aiSettings));
+        var (fileStream, fileName) = new ValueTuple<Stream, string>();
+        try
+        {
+            DocumentEvent documentEvent = @event as DocumentEvent ?? throw new InvalidCastException(nameof(@event));
+            (fileStream, fileName) = await _minIoService.Get(documentEvent.FullName);
+            return await Process(fileStream, fileName);
+        }
+        finally
+        {
+            if (fileStream is not null) await fileStream.DisposeAsync();
+        }
     }
-
-    public async Task<AIResponse> Process(Stream file, string fileName)
+    
+    private async Task<AiResponse> Process(Stream file, string fileName)
     {
-        AIResponse aiResponse = new();
+        AiResponse aiResponse = new();
         DateTime inicio = DateTime.Now;
         
         #region send request
@@ -83,7 +97,7 @@ public class GeminiDocumentProcessor : IDocumentProcessor
 
     }
 
-    async Task<Google.GenAI.Types.File> TryUpload(Client client, Stream stream, string fileName)
+    private async Task<Google.GenAI.Types.File> TryUpload(Client client, Stream stream, string fileName)
     {
         Google.GenAI.Types.File uploadResponse =
             await client.Files.UploadAsync(stream, stream.Length, "", "application/pdf");
@@ -92,7 +106,7 @@ public class GeminiDocumentProcessor : IDocumentProcessor
         return uploadResponse;
     }
 
-    async Task<GenerateContentResponse> TryProcess(Client client, string uriToFile, string modelo, string prompt)
+    private async Task<GenerateContentResponse> TryProcess(Client client, string uriToFile, string modelo, string prompt)
     {
         return await client.Models.GenerateContentAsync(
             model: modelo,
@@ -112,7 +126,7 @@ public class GeminiDocumentProcessor : IDocumentProcessor
 
     #region support methods
 
-    AIResponse RetornoException(Exception e, AIResponse retorno)
+    private AiResponse RetornoException(Exception e, AiResponse retorno)
     {
         retorno.Success = false;
         retorno.Fields = new JsonElement();
@@ -120,7 +134,7 @@ public class GeminiDocumentProcessor : IDocumentProcessor
         return retorno;
     }
 
-    AIResponse RetornoExceptionMsg(string message, AIResponse retorno)
+    private AiResponse RetornoExceptionMsg(string message, AiResponse retorno)
     {
         retorno.Success = false;
         retorno.Fields = new JsonElement();
@@ -128,7 +142,7 @@ public class GeminiDocumentProcessor : IDocumentProcessor
         return retorno;
     }
     
-    JsonElement GetJsonFromMessage(string message) 
+    private JsonElement GetJsonFromMessage(string message) 
     {
         try
         {
@@ -144,7 +158,7 @@ public class GeminiDocumentProcessor : IDocumentProcessor
         }
     }
     
-    double GetRequestDuration(DateTime init)
+    private double GetRequestDuration(DateTime init)
     {
         string durationString = (DateTime.Now - init).TotalSeconds.ToString();
         if (double.TryParse(durationString, out double duration))
@@ -154,4 +168,6 @@ public class GeminiDocumentProcessor : IDocumentProcessor
         return -1;
     }
     #endregion
+
+    
 }

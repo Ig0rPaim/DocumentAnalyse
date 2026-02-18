@@ -1,0 +1,32 @@
+podman run -d --name kafka \
+  --network analise-network \
+  -p 9002:9002 \
+  -e KAFKA_NODE_ID=1 \
+  -e KAFKA_PROCESS_ROLES=broker,controller \
+  -e KAFKA_LISTENER_SECURITY_PROTOCOL_MAP=CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT \
+  -e KAFKA_CONTROLLER_QUORUM_VOTERS=1@kafka:29093 \
+  -e KAFKA_LISTENERS=PLAINTEXT://0.0.0.0:29092,CONTROLLER://0.0.0.0:29093,PLAINTEXT_HOST://0.0.0.0:9002 \
+  -e KAFKA_ADVERTISED_LISTENERS=PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9002 \
+  -e KAFKA_INTER_BROKER_LISTENER_NAME=PLAINTEXT \
+  -e KAFKA_CONTROLLER_LISTENER_NAMES=CONTROLLER \
+  -e KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR=1 \
+  -e KAFKA_HEAP_OPTS="-Xms512M -Xmx512M" \
+  docker.io/confluentinc/cp-kafka:latest \
+  /bin/bash -c "export CLUSTER_ID=\$(kafka-storage random-uuid) && /etc/confluent/docker/run"
+
+  ---------------
+
+  podman exec kafka kafka-topics --create \
+  --topic analise-documentos \
+  --bootstrap-server localhost:9092 \
+  --partitions 3 \
+  --replication-factor 1
+
+  -----------------------------------
+
+  docker run -d --name minio \
+  --network analise-network \
+  -p 9000:9000 -p 9001:9001 \
+  -e "MINIO_ROOT_USER=admin" \
+  -e "MINIO_ROOT_PASSWORD=password123" \
+  minio/minio server /data --console-address ":9001"

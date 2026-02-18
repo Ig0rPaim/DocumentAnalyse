@@ -1,48 +1,51 @@
-using System.Text.Json;
-using Commons.Configuration;
 using Commons.Models;
 using Commons.Services.Interfaces;
 using Confluent.Kafka;
-using Microsoft.VisualBasic.CompilerServices;
+using Microsoft.Extensions.Logging;
 
 namespace Commons.Services.Implementations;
 
-public class KafkaProducerService : IKafkaProducerService
+public class KafkaProducerService<TKey, TValue>(
+    IProducer<TKey, TValue> producer,
+    ILogger<KafkaProducerService<TKey, TValue>> logger,
+    IEventService<TKey, TValue> eventService,
+    ISerializatorService<TKey, TValue> serializatorService)
+    : IKafkaProducerService<TKey, TValue>
 {
-    readonly KafkaSettings _kafkaSettings;
-    readonly MinioSettings _minioSettings;
-    readonly IProducer<string, string> _kafkaProducer;
+    private readonly IProducer<TKey, TValue> _producer = producer ?? throw new ArgumentNullException(nameof(producer));
+    private readonly ILogger<KafkaProducerService<TKey, TValue>> _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+    private readonly IEventService<TKey, TValue> _eventService = eventService ?? throw new ArgumentNullException(nameof(eventService));
+    private readonly ISerializatorService<TKey, TValue> _serializatorService = serializatorService ?? throw new ArgumentNullException(nameof(serializatorService));
 
-    public KafkaProducerService(KafkaSettings kafkaSettings, MinioSettings minioSettings,
-        IProducer<string, string> kafkaProducer)
+    // public Task ProduceEvent(string topic, Event @event)
+    // {
+    //     return ProduceEvent(topic, @event);
+    //     
+    // }
+
+    public async Task ProduceEvent(string topic, Event @event)
     {
-        _kafkaSettings = kafkaSettings ?? throw new ArgumentNullException(nameof(kafkaSettings));
-        _minioSettings = minioSettings ?? throw new ArgumentNullException(nameof(minioSettings));
-        _kafkaProducer = kafkaProducer ?? throw new ArgumentNullException(nameof(kafkaProducer));
-    }
+        try
+        {
+            var serializedKey = _serializatorService.SerializeKeyType(@event.FullName);
+            var serializedValue = _serializatorService.SerializeValueType(@event);
+            
+            _eventService.KeyIsValid(serializedKey);
+            _eventService.ValueIsValid(serializedValue);
+            
+            var kafkaMessage = new Message<TKey, TValue>
+            {
+                Key = serializedKey,
+                Value = serializedValue
+            };
 
-    public async Task ProduceEvent(string topic, string? objectName)
-    {
-        if(string.IsNullOrEmpty(topic))
-            throw  new ArgumentNullException(nameof(topic));
-        
-        if(string.IsNullOrEmpty(objectName))
-            throw  new ArgumentNullException(nameof(objectName));
-
-        DocumentEvent documentEvent =
-            new DocumentEvent(Guid.NewGuid(), objectName, _minioSettings.BucketName, DateTime.UtcNow);
-        var mensagemJson = JsonSerializer.Serialize(documentEvent);
-
-        var kafkaMessage = new Message<string, string> { 
-            Key = objectName, 
-            Value = mensagemJson 
-        };
-
-        await _kafkaProducer.ProduceAsync(topic, kafkaMessage);
-    }
-
-    public Task ConsumeEvent(string topic)
-    {
-        throw new NotImplementedException();
+            var deliveryResult = await _producer.ProduceAsync(topic, kafkaMessage);
+            _logger.LogInformation("Delivered message to {TopicPartitionOffset}", deliveryResult.TopicPartitionOffset);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error producing event to topic {Topic}", topic);
+            throw;
+        }
     }
 }
