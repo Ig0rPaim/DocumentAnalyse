@@ -6,6 +6,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using Google.GenAI;
+using Microsoft.Extensions.Hosting;
 using Minio;
 
 namespace Commons.Configuration;
@@ -22,6 +23,10 @@ public static class ServiceCollectionExtensions
     {
         { [typeof(string), typeof(string)], typeof(EventStringService) }
     };
+
+    public static IConfigurationSection kafkaSettingsSection = null;
+
+    public static Type[] typeArgs = null;
     
     public static IServiceCollection AddCommonConfiguration(this IServiceCollection services,
         IConfiguration configuration)
@@ -57,15 +62,15 @@ public static class ServiceCollectionExtensions
         #region Add internal services
         
         var types = GetKafkaKeyValueTypes(kafkaSettingsSection);
-        var typeArgs = new Type[] { types.keyType, types.valueType };
+        typeArgs = new Type[] { types.keyType, types.valueType };
             
         AddDynamicImplementedServices(services, typeof(ISerializatorService<,>), SerializerMappings, typeArgs);
         
         AddDynamicImplementedServices(services, typeof(IEventService<,>), EventServiceMappings, typeArgs);
         
-        AddDynamicService(services, typeof(IKafkaProducerService<,>), typeof(KafkaProducerService<,>), typeArgs);
+        AddDynamicService(services, typeof(IKafkaProducerService), typeof(KafkaProducerService<,>), typeArgs);
 
-        AddDynamicService(services, typeof(IKafkaConsumerService<,>), typeof(KafkaConsumerService<,>), typeArgs);
+        AddDynamicService(services, typeof(IKafkaConsumerService), typeof(KafkaConsumerService<,>), typeArgs);
 
         
         
@@ -129,10 +134,21 @@ public static class ServiceCollectionExtensions
         Type implementationType,
         Type[] genericArgs) 
     {
-        Type closedInterface = serviceInterface.MakeGenericType(genericArgs);
+        Type closedInterface = serviceInterface.IsGenericTypeDefinition ? 
+            serviceInterface.MakeGenericType(genericArgs) :
+            serviceInterface;
         Type closedImplementation = implementationType.MakeGenericType(genericArgs);
 
         services.AddSingleton(closedInterface, closedImplementation);
+    }
+
+    public static void AddDynamicHostedService(
+        this IServiceCollection services, 
+        Type implementationType, 
+        Type[] genericArgs) 
+    {
+        Type closedImplementation = implementationType.MakeGenericType(genericArgs);
+        services.AddSingleton(typeof(IHostedService), closedImplementation);
     }
     
     private static object BuildKafkaComponent(IServiceProvider sp, Type builderGenericType, Type[] genericArgs, object config)

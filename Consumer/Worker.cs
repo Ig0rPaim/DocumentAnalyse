@@ -7,17 +7,17 @@ using Confluent.Kafka;
 
 namespace Consumer;
 
-public class Worker(
-    ILogger<Worker> logger,
-    IConsumer<string, string> consumer,
+public class Worker<TKey, TValue>(
+    ILogger<Worker<TKey, TValue>> logger,
+    IConsumer<TKey, TValue> consumer,
     KafkaSettings kafkaSettings,
-    IKafkaConsumerService<string, string> kafkaConsumerService,
-    IKafkaProducerService<string, string> kafkaProducerService)
+    IKafkaConsumerService kafkaConsumerService,
+    IKafkaProducerService kafkaProducerService)
     : BackgroundService
 {
-    readonly IConsumer<string, string> _consumer = consumer ?? throw new ArgumentNullException(nameof(consumer));
+    readonly IConsumer<TKey, TValue> _consumer = consumer ?? throw new ArgumentNullException(nameof(consumer));
     readonly KafkaSettings _kafkaSettings = kafkaSettings ?? throw new ArgumentNullException(nameof(kafkaSettings));
-    readonly ILogger<Worker> _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+    readonly ILogger<Worker<TKey, TValue>> _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     readonly IKafkaConsumerService _kafkaConsumerService = kafkaConsumerService ?? throw new ArgumentNullException(nameof(kafkaConsumerService));
     readonly IKafkaProducerService _kafkaProducerService = kafkaProducerService ?? throw new ArgumentNullException(nameof(kafkaProducerService));
 

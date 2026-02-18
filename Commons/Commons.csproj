@@ -16,6 +16,9 @@
     <Reference Include="Microsoft.Extensions.DependencyInjection.Abstractions">
       <HintPath>..\..\..\..\..\..\opt\microsoft\dotnet\sdk\10.0.100\shared\Microsoft.AspNetCore.App\10.0.0\Microsoft.Extensions.DependencyInjection.Abstractions.dll</HintPath>
     </Reference>
+    <Reference Include="Microsoft.Extensions.Hosting.Abstractions">
+      <HintPath>..\..\..\..\..\..\opt\microsoft\dotnet\sdk\10.0.100\shared\Microsoft.AspNetCore.App\10.0.0\Microsoft.Extensions.Hosting.Abstractions.dll</HintPath>
+    </Reference>
     <Reference Include="Microsoft.Extensions.Options">
       <HintPath>..\..\..\..\..\..\opt\microsoft\dotnet\sdk\10.0.100\shared\Microsoft.AspNetCore.App\10.0.0\Microsoft.Extensions.Options.dll</HintPath>
     </Reference>

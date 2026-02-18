@@ -12,7 +12,7 @@ namespace Producer.Controllers;
 [Route("[controller]")]
 public class DocumentController(
     IMinIoService minioService,
-    IKafkaProducerService<string, string> kafkaProducerService,
+    IKafkaProducerService kafkaProducerService,
     ILogger<DocumentController> logger,
     KafkaSettings kafkaSettings,
     MinioSettings minioSettings)
